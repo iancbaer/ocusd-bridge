@@ -1,0 +1,29 @@
+{
+  "name": "ocusd-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Centralized V1 USDT to ocUSD bridge for Octra",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "setup:test-env": "node scripts/create-test-env.js",
+    "deploy:eth": "hardhat run scripts/deploy.js --network mainnet",
+    "deploy:mock": "hardhat run scripts/deploy-mock.js",
+    "deploy:sepolia-mock": "hardhat run scripts/deploy-mock.js --network sepolia",
+    "relayer": "node relayer/index.js",
+    "proof": "node proof/server.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.0.2",
+    "axios": "^1.7.9",
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.5",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.18"
+  }
+}

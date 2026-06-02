@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ocUSD Proof of Backing</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; color: #172033; background: #f6f8fb; }
+      main { max-width: 1040px; margin: 0 auto; padding: 28px 18px; }
+      h1 { font-size: 28px; margin: 0 0 8px; }
+      p { color: #5d6a80; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 20px 0; }
+      .card { background: #fff; border: 1px solid #dce3ee; border-radius: 8px; padding: 14px; }
+      .label { color: #5d6a80; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+      .value { font-size: 22px; margin-top: 8px; overflow-wrap: anywhere; }
+      .ok { color: #116b3a; }
+      .bad { color: #a52222; }
+      table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dce3ee; border-radius: 8px; overflow: hidden; }
+      th, td { padding: 10px; border-bottom: 1px solid #e8edf4; text-align: left; font-size: 14px; }
+      th { background: #eef3f8; color: #46556b; }
+      code { background: #edf1f7; padding: 2px 4px; border-radius: 4px; }
+      pre { overflow: auto; background: #172033; color: #e8edf4; padding: 14px; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>ocUSD Proof of Backing</h1>
+      <p>This page compares Ethereum custody USDT, Octra token supply, and relayer audit state.</p>
+      <section class="grid">
+        <div class="card">
+          <div class="label">Custody USDT</div>
+          <div class="value" id="custody">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="label">Octra ocUSD Supply</div>
+          <div class="value" id="supply">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="label">Outstanding Accounting</div>
+          <div class="value" id="outstanding">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="label">Relayer Status</div>
+          <div class="value" id="status">Loading...</div>
+        </div>
+      </section>
+      <h2>Invariants</h2>
+      <table>
+        <tbody id="invariants"></tbody>
+      </table>
+      <h2>Raw Snapshot</h2>
+      <pre id="raw">Loading...</pre>
+    </main>
+    <script>
+      const truth = (value) => value === true ? '<span class="ok">PASS</span>' : value === false ? '<span class="bad">FAIL</span>' : 'UNKNOWN';
+      fetch('/api/proof')
+        .then((res) => res.json())
+        .then((data) => {
+          document.getElementById('custody').textContent = data.ethereum?.custody_usdt_balance ?? 'unavailable';
+          document.getElementById('supply').textContent = data.octra?.total_supply ?? 'unavailable';
+          document.getElementById('outstanding').textContent = data.relayer?.outstanding_deposits ?? 'unavailable';
+          document.getElementById('status').innerHTML = data.ethereum?.paused ? '<span class="bad">Paused</span>' : '<span class="ok">Running</span>';
+          document.getElementById('invariants').innerHTML = Object.entries(data.invariant || {})
+            .map(([key, value]) => `<tr><th>${key}</th><td>${truth(value)}</td></tr>`)
+            .join('');
+          document.getElementById('raw').textContent = JSON.stringify(data, null, 2);
+        })
+        .catch((error) => {
+          document.getElementById('status').innerHTML = '<span class="bad">Error</span>';
+          document.getElementById('raw').textContent = error.message;
+        });
+    </script>
+  </body>
+</html>
