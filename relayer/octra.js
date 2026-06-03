@@ -97,38 +97,25 @@ function createOctraClient(config) {
     return sendContractCall("mint", [recipient, amount, ethDepositNonce]);
   }
 
-  function parseBurnEvent(tx) {
-    const receipt = tx.receipt || tx.result || tx;
-    const logs = receipt.events || receipt.logs || [];
+  async function fetchBurnReceipt(txHash) {
+    const result = await rpc("contract_receipt", [txHash]);
+    if (!result.success) return null;
 
-    for (const log of logs) {
-      const name = log.event || log.name || log.method;
-      if (name !== "Burned" && name !== "BurnedToEth") continue;
+    const burnEvent = (result.events || []).find((e) => e.event === "BurnedToEth");
+    if (!burnEvent) return null;
 
-      const args = log.args || log.params || {};
-      const isBurnedToEth = name === "BurnedToEth";
-      const userAddress = args.account || args.caller || args.user || args[0];
-      const ethRecipient = args.ethRecipient || args.eth_recipient || args.recipient || (isBurnedToEth ? args[1] : undefined);
-      const amount = String(args.amount || (isBurnedToEth ? args[2] : args[1]));
-      const burnNonce = Number(args.burnNonce || args.burn_nonce || (isBurnedToEth ? args[3] : args[2]));
+    // values = [account, ethRecipient, amount, burnNonce]
+    const [userAddress, ethRecipient, amount, burnNonce] = burnEvent.values || [];
+    if (!ethers.isAddress(ethRecipient)) return null;
 
-      if (!ethers.isAddress(ethRecipient)) {
-        throw new Error(
-          `burn ${burnNonce} has no Ethereum recipient; add an Octra event field or mapping before releasing`
-        );
-      }
-
-      return {
-        octraTxHash: tx.hash || tx.tx_hash || receipt.tx_hash,
-        blockHeight: Number(tx.height || tx.block_height || receipt.height || receipt.block_height || 0),
-        userAddress,
-        amount,
-        burnNonce,
-        ethRecipient,
-      };
-    }
-
-    return null;
+    return {
+      octraTxHash: txHash,
+      blockHeight: Number(result.epoch || 0),
+      userAddress: String(userAddress),
+      amount: String(amount),
+      burnNonce: Number(burnNonce),
+      ethRecipient: String(ethRecipient),
+    };
   }
 
   async function scanBurns(fromHeight, toHeight) {
@@ -143,6 +130,7 @@ function createOctraClient(config) {
           to_height: toHeight,
         },
         timeout: 30_000,
+        headers: { "User-Agent": config.octraRpcUserAgent || "ocusd-relayer/1.0" },
       });
       return (response.data.events || response.data || []).map((event) => ({
         octraTxHash: event.tx_hash || event.octra_tx_hash,
@@ -154,16 +142,24 @@ function createOctraClient(config) {
       })).filter((event) => ethers.isAddress(event.ethRecipient));
     }
 
-    const txs = await rpc("octra_transactionsByAddress", [config.octraTokenContract, 100, 0]);
+    // Fetch transaction list, filter burn_to_eth calls in range, then fetch
+    // each receipt individually — the tx list does not include event data.
+    const txs = await rpc("octra_transactionsByAddress", [config.octraTokenContract, 200, 0]);
     const list = txs.transactions || txs.items || txs || [];
 
-    return list
-      .filter((tx) => {
-        const height = Number(tx.height || tx.block_height || 0);
-        return height >= fromHeight && height <= toHeight;
-      })
-      .map(parseBurnEvent)
-      .filter(Boolean);
+    const candidates = list.filter((tx) => {
+      const height = Number(tx.epoch || tx.height || tx.block_height || 0);
+      return height >= fromHeight && height <= toHeight && tx.encrypted_data === "burn_to_eth";
+    });
+
+    const results = [];
+    for (const tx of candidates) {
+      try {
+        const burn = await fetchBurnReceipt(tx.hash);
+        if (burn) results.push(burn);
+      } catch (_) {}
+    }
+    return results;
   }
 
   return {
