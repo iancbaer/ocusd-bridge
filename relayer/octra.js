@@ -142,14 +142,21 @@ function createOctraClient(config) {
       })).filter((event) => ethers.isAddress(event.ethRecipient));
     }
 
-    // Fetch transaction list, filter burn_to_eth calls in range, then fetch
-    // each receipt individually — the tx list does not include event data.
-    const txs = await rpc("octra_transactionsByAddress", [config.octraTokenContract, 200, 0]);
+    // Fetch recent transactions. We always check a sliding window of the
+    // most recent 500 txs rather than just the epoch range, because a burn
+    // can land in an epoch that the relayer has already marked as scanned
+    // (e.g. the user burns slightly before the scan pointer advances).
+    // The DB UNIQUE(burn_nonce) constraint prevents double-processing.
+    const txs = await rpc("octra_transactionsByAddress", [config.octraTokenContract, 500, 0]);
     const list = txs.transactions || txs.items || txs || [];
 
     const candidates = list.filter((tx) => {
       const height = Number(tx.epoch || tx.height || tx.block_height || 0);
-      return height >= fromHeight && height <= toHeight && tx.encrypted_data === "burn_to_eth";
+      // Include everything up to toHeight; fromHeight is a lower bound to
+      // avoid re-processing very old history on every poll, but we set it
+      // conservatively low (allow 500-epoch lookback) to catch stragglers.
+      const lookback = Math.max(0, fromHeight - 500);
+      return height >= lookback && height <= toHeight && tx.encrypted_data === "burn_to_eth";
     });
 
     const results = [];
