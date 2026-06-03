@@ -44,7 +44,7 @@ function configFromEnv(env = process.env) {
     octraEventsEndpoint: env.OCTRA_EVENTS_ENDPOINT,
     octraSubmitEndpoint: env.OCTRA_SUBMIT_ENDPOINT,
     octraRpcUserAgent: env.OCTRA_RPC_USER_AGENT || "ocusd-relayer/1.0",
-    userSubmittedWithdrawals: env.USER_SUBMITTED_WITHDRAWALS !== "0",
+    userSubmittedWithdrawals: env.USER_SUBMITTED_WITHDRAWALS === "1",
     bridgeFeeBps: Number(env.BRIDGE_FEE_BPS || 10),
     minOctraRelayerBalanceOu: env.MIN_OCTRA_RELAYER_BALANCE_OU || "0",
   };
@@ -185,6 +185,10 @@ async function main() {
   const db = context.store.db;
   db.prepare("UPDATE eth_deposits SET status='pending' WHERE status='processing'").run();
   db.prepare("UPDATE octra_burns SET status='pending' WHERE status='processing'").run();
+  // In auto-submit mode, re-queue signed-but-not-released burns so the relayer submits them
+  if (!context.config.userSubmittedWithdrawals) {
+    db.prepare("UPDATE octra_burns SET status='pending', attempts=0 WHERE status='signed' AND eth_release_tx IS NULL").run();
+  }
 
   log("log", "ocUSD relayer started");
 

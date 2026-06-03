@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OctraCash ocUSD Bridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111318;
+    --bg3: #181c22;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --green: #00e5a0;
+    --green2: #00b87a;
+    --green-dim: rgba(0,229,160,0.12);
+    --green-dim2: rgba(0,229,160,0.06);
+    --text: #f0f2f5;
+    --text2: #8a9bb0;
+    --text3: #4a5568;
+    --red: #ff4f4f;
+    --red-dim: rgba(255,79,79,0.1);
+    --yellow: #f5c542;
+    --mono: 'Space Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--display); min-height: 100vh; overflow-x: hidden; }
+
+  body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0,229,160,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0,184,122,0.05) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .page { position: relative; z-index: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  header { margin-bottom: 48px; }
+  .logo-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--green-dim);
+    border: 1px solid rgba(0,229,160,0.3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-name { font-size: 20px; font-weight: 800; letter-spacing: 0; color: var(--text); }
+  .logo-name span { color: var(--green); }
+  .tagline { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.08em; margin-top: 4px; line-height: 1.6; }
+
+  .wallet-btn {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text2); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .wallet-btn:hover { border-color: var(--green); color: var(--green); }
+  .wallet-btn.connected { border-color: rgba(0,229,160,0.3); color: var(--green); }
+  .wallet-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+  .wallet-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; border: 1px solid var(--border); }
+  .stat { background: var(--bg2); padding: 14px 16px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text); }
+  .stat-value.green { color: var(--green); }
+
+  .tabs { display: flex; gap: 2px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 20px; }
+  .tab {
+    flex: 1; padding: 9px; font-family: var(--display); font-size: 13px; font-weight: 600;
+    letter-spacing: 0.02em; border-radius: 7px; border: none; background: none;
+    color: var(--text3); cursor: pointer; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { background: var(--bg3); color: var(--green); border: 1px solid rgba(0,229,160,0.2); }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; animation: fadeUp 0.2s ease;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .field { margin-bottom: 20px; }
+  .field-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 8px; display: block;
+  }
+  .input-wrap { position: relative; }
+  .input-wrap input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 14px 70px 14px 16px;
+    font-family: var(--mono); font-size: 15px; color: var(--text);
+    outline: none; transition: border-color 0.15s;
+  }
+  .input-wrap input:focus { border-color: rgba(0,229,160,0.4); }
+  .input-wrap input::placeholder { color: var(--text3); }
+  .input-wrap input.addr { padding-right: 16px; font-size: 13px; }
+  .token-badge {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    color: var(--green); background: var(--green-dim2);
+    border: 1px solid rgba(0,229,160,0.2); border-radius: 5px;
+    padding: 3px 8px; letter-spacing: 0.05em;
+  }
+
+  .arrow-row { display: flex; align-items: center; justify-content: center; margin: 4px 0 12px; }
+  .arrow-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text3);
+  }
+
+  .summary {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
+    display: none;
+  }
+  .summary.show { display: block; }
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 12px; padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-row:last-child { border-bottom: none; padding-top: 8px; margin-top: 4px; }
+  .summary-row span:first-child { color: var(--text3); }
+  .summary-row span:last-child { color: var(--text); }
+  .summary-row.total span:last-child { color: var(--green); font-weight: 700; font-size: 14px; }
+
+  .btn {
+    width: 100%; padding: 15px; border-radius: 10px; border: none; cursor: pointer;
+    font-family: var(--display); font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+    background: var(--green); color: #000; transition: all 0.15s;
+  }
+  .btn:hover:not(:disabled) { background: #00ffb3; transform: translateY(-1px); }
+  .btn:active:not(:disabled) { transform: translateY(0); }
+  .btn:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; border: 1px solid var(--border); }
+  .btn.loading { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+  .btn.success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+
+  .note { font-family: var(--mono); font-size: 11px; color: var(--text3); text-align: center; margin-top: 12px; line-height: 1.6; }
+
+  .addr-box {
+    background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 20px;
+  }
+  .addr-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .addr-row { display: flex; align-items: center; gap: 10px; }
+  .addr-text { font-family: var(--mono); font-size: 12px; color: var(--green); flex: 1; word-break: break-all; line-height: 1.5; }
+  .copy-btn {
+    font-family: var(--mono); font-size: 11px; background: var(--green-dim);
+    border: 1px solid rgba(0,229,160,0.2); color: var(--green);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .copy-btn:hover { background: rgba(0,229,160,0.2); }
+
+  .lookup-result {
+    display: none; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; margin-top: 16px;
+  }
+  .lookup-result.show { display: block; }
+  .lookup-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 12px;
+  }
+  .lookup-row:last-child { border-bottom: none; }
+  .lookup-row span:first-child { color: var(--text3); }
+  .lookup-row span:last-child { color: var(--text); max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+  .status-badge {
+    background: var(--green-dim); border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 4px; padding: 2px 8px; font-size: 10px;
+    color: var(--green); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .burn-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .burn-card-row {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .burn-card .claim-btn {
+    width: 100%; padding: 10px; font-size: 13px;
+  }
+
+  .error-box {
+    display: none; background: var(--red-dim); border: 1px solid rgba(255,79,79,0.2);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+    font-family: var(--mono); font-size: 12px; color: var(--red);
+  }
+  .error-box.show { display: block; }
+
+  .tx-link {
+    display: none; text-align: center; margin-top: 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--text3);
+  }
+  .tx-link.show { display: block; }
+  .tx-link a { color: var(--green); text-decoration: none; }
+  .tx-link a:hover { text-decoration: underline; }
+
+  .disclaimer {
+    margin-top: 32px; padding: 16px; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 10px;
+    font-family: var(--mono); font-size: 11px; color: var(--text3); line-height: 1.7;
+  }
+  .disclaimer strong { color: var(--text2); }
+
+  @media (max-width: 560px) {
+    .page { padding: 28px 16px 60px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stats .stat:last-child { grid-column: span 2; }
+  }
+
+  @media (max-width: 420px) {
+    header { margin-bottom: 36px; }
+    .logo-row { align-items: flex-start; flex-direction: column; }
+    .wallet-btn { width: 100%; justify-content: center; }
+    .card { padding: 24px 20px; }
+    .input-wrap input { padding-left: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2L14 6H11V10H9V6H6L10 2Z" fill="#00e5a0"/>
+            <path d="M10 18L6 14H9V10H11V14H14L10 18Z" fill="#00e5a0" opacity="0.6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-name">oc<span>USD</span></div>
+        </div>
+      </div>
+      <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">
+        <span class="wallet-dot" id="wallet-dot"></span>
+        <span id="wallet-label">Connect wallet</span>
+      </button>
+    </div>
+    <div class="tagline">// USDT on Ethereum &lt;&gt; ocUSD on Octra — 1:1 bridge</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">TVL</div>
+      <div class="stat-value green" id="stat-tvl">$0.00</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">ocUSD issued</div>
+      <div class="stat-value" id="stat-bridged">0.00</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Fee</div>
+      <div class="stat-value" id="stat-fee">0.1%</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="deposit" onclick="switchTab('deposit')">Deposit</button>
+    <button class="tab" data-tab="redeem" onclick="switchTab('redeem')">Redeem</button>
+    <button class="tab" data-tab="lookup" onclick="switchTab('lookup')">Lookup</button>
+  </div>
+
+  <div class="addr-box" style="margin-bottom:20px;">
+    <div class="addr-label">ocUSD contract (Octra)</div>
+    <div class="addr-row">
+      <div class="addr-text" id="octra-contract-display" style="font-size:11px;">octHXvCjk22x1yCftjRMgG2v2ZMhUYc6BZKsLSVEQrSLEG4</div>
+      <button class="copy-btn" onclick="copyOctraContract()">Copy</button>
+    </div>
+  </div>
+
+  <!-- DEPOSIT -->
+  <div class="panel active" id="panel-deposit">
+    <div class="card">
+      <div class="error-box" id="deposit-error"></div>
+
+      <div class="field">
+        <label class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+          You send
+          <span id="deposit-balance-hint" style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.04em;cursor:pointer;" onclick="setDepositMax()" title="Click to use max"></span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="deposit-amount" placeholder="0.00" min="0.01" step="0.01" oninput="updateDeposit()">
+          <span class="token-badge">USDT</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Your Octra wallet address</label>
+        <div class="input-wrap">
+          <input type="text" id="deposit-octra" class="addr" placeholder="oct1..." oninput="updateDeposit()">
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <div class="arrow-icon">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v10M3 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">You receive</label>
+        <div class="input-wrap">
+          <input type="text" id="deposit-receive" placeholder="0.00" readonly>
+          <span class="token-badge">ocUSD</span>
+        </div>
+      </div>
+
+      <div class="summary" id="deposit-summary">
+        <div class="summary-row"><span>Amount</span><span id="ds-amount">—</span></div>
+        <div class="summary-row"><span id="ds-fee-label">Bridge fee</span><span id="ds-fee">—</span></div>
+        <div class="summary-row"><span>Destination</span><span id="ds-dest" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">—</span></div>
+        <div class="summary-row total"><span>You receive</span><span id="ds-receive">—</span></div>
+      </div>
+
+      <button class="btn" id="deposit-btn" disabled onclick="executeDeposit()">Connect wallet to deposit</button>
+      <div class="tx-link" id="deposit-tx"></div>
+      <p class="note" id="deposit-note">Funds locked in custody contract · ~2 min settlement · Octra mainnet alpha</p>
+    </div>
+  </div>
+
+  <!-- REDEEM -->
+  <div class="panel" id="panel-redeem">
+    <div class="card">
+      <div class="error-box" id="redeem-error"></div>
+
+      <div class="field">
+        <label class="field-label">You burn</label>
+        <div class="input-wrap">
+          <input type="number" id="redeem-amount" placeholder="0.00" min="0.01" step="0.01" oninput="updateRedeem()">
+          <span class="token-badge">ocUSD</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Your Ethereum wallet</label>
+        <div class="input-wrap">
+          <input type="text" id="redeem-eth" class="addr" placeholder="0x..." oninput="updateRedeem()">
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <div class="arrow-icon">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v10M3 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">You receive</label>
+        <div class="input-wrap">
+          <input type="text" id="redeem-receive" placeholder="0.00" readonly>
+          <span class="token-badge">USDT</span>
+        </div>
+      </div>
+
+      <div class="summary" id="redeem-summary">
+        <div class="summary-row"><span id="rs-fee-label">Bridge fee</span><span id="rs-fee">—</span></div>
+        <div class="summary-row"><span>Recipient</span><span id="rs-dest" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">—</span></div>
+        <div class="summary-row total"><span>You receive</span><span id="rs-receive">—</span></div>
+      </div>
+
+      <button class="btn" id="redeem-btn" disabled onclick="executeRedeem()">Enter amount to redeem</button>
+      <div class="tx-link" id="octra-tx" style="margin-top:10px;"></div>
+      <p class="note" id="redeem-note">Your Octra wallet handles the burn — USDT arrives automatically in ~1–2 min.</p>
+    </div>
+  </div>
+
+  <!-- LOOKUP -->
+  <div class="panel" id="panel-lookup">
+    <div class="card">
+      <div class="field" style="margin-bottom:16px;">
+        <label class="field-label">Look up by Ethereum address</label>
+        <div class="input-wrap">
+          <input type="text" id="lookup-input" class="addr" placeholder="0x...">
+        </div>
+      </div>
+      <button class="btn" onclick="executeLookup()">Look up</button>
+
+      <div class="lookup-result" id="lookup-result">
+        <div class="lookup-row"><span>ETH address</span><span id="lr-eth">—</span></div>
+        <div class="lookup-row"><span>Octra address</span><span id="lr-oct">—</span></div>
+        <div class="lookup-row"><span>USDT locked</span><span id="lr-locked">—</span></div>
+        <div class="lookup-row"><span>ocUSD issued</span><span id="lr-issued">—</span></div>
+        <div class="lookup-row"><span>Deposits</span><span id="lr-count">—</span></div>
+        <div class="lookup-row"><span>Status</span><span id="lr-status">—</span></div>
+      </div>
+
+      <!-- Pending redemptions / rescue claim section -->
+      <div id="lr-burns-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Pending Redemptions</div>
+        <div id="lr-burns-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>V1 — Centralized relayer.</strong> This bridge uses a single trusted relayer keypair. Fees fund custody, withdrawal gas, and Octra relayer reserves; deposits pause if the reserve is not ready. The operator controls USDT custody. This is not audited software. Bridge at your own risk.
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/@0xio/sdk@2.7.0/dist/index.umd.js"></script>
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CONFIG = {
+  BRIDGE_LIVE: true,
+  BRIDGE_FEE_BPS: 10,
+  CUSTODY_CONTRACT: '0x94b71A30EF2070E77483E0B3718fe0fA5005E085',
+  CUSTODY_DEPLOY_BLOCK: 25233400,
+  USDT_ADDRESS: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  OCUSD_CONTRACT_OCTRA: 'octHXvCjk22x1yCftjRMgG2v2ZMhUYc6BZKsLSVEQrSLEG4',
+  RELAYER_API: 'https://relayer.octracash.com',
+  OCTRA_WEBCLI_API: 'http://127.0.0.1:8080/api',
+  ETH_RPC_URLS: ['https://rpc.ankr.com/eth/6ff9efe879b69f88ef198093ade4be0828148a57d04e71a7b4780482f39ec09c', 'https://ethereum-rpc.publicnode.com', 'https://rpc.ankr.com/eth'],
+  CHAIN_ID: 1,
+  ETHERSCAN: 'https://etherscan.io/tx/',
+};
+
+const CUSTODY_ABI = [
+  'function deposit(uint256 amount, string calldata octraAddress) external',
+  'function depositNonce() view returns (uint256)',
+  'function usedBurnNonces(uint256) view returns (bool)',
+  'function withdraw(address recipient, uint256 amount, uint256 octraBurnNonce, bytes calldata signature) external',
+  'event Deposited(address indexed user, uint256 amount, string octraAddress, uint256 nonce)',
+];
+const ERC20_ABI = [
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let provider = null;
+let signer = null;
+let walletAddress = '';
+let tvl = 0;
+let txCount = 0;
+let octraWalletAddr = '';
+let octraSDK = null;
+let octraConnMethod = null;
+
+function isCustodyConfigured() {
+  return ethers.isAddress(CONFIG.CUSTODY_CONTRACT) && CONFIG.CUSTODY_CONTRACT !== ethers.ZeroAddress;
+}
+function isBridgeLive() { return CONFIG.BRIDGE_LIVE && isCustodyConfigured(); }
+function isRelayerLive() { return CONFIG.RELAYER_API.startsWith('https://'); }
+function feeRate() { return CONFIG.BRIDGE_FEE_BPS / 10000; }
+function feeLabel() { return (CONFIG.BRIDGE_FEE_BPS / 100).toFixed(2).replace(/\.?0+$/, '') + '%'; }
+
+// ─── WALLET (Ethereum / MetaMask) ────────────────────────────────────────────
+async function connectWallet() {
+  if (walletAddress) { disconnectWallet(); return; }
+  if (!window.ethereum) { showDepositError('MetaMask not detected. Please install MetaMask to use this bridge.'); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await provider.send('eth_requestAccounts', []);
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== CONFIG.CHAIN_ID) {
+      showDepositError('Wrong network. Please switch to Ethereum mainnet in MetaMask.');
+      provider = null; return;
+    }
+    signer = await provider.getSigner();
+    walletAddress = accounts[0];
+    document.getElementById('wallet-dot').classList.add('on');
+    document.getElementById('wallet-label').textContent = walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
+    document.getElementById('wallet-btn').classList.add('connected');
+    hideDepositError();
+    updateDeposit();
+    loadUSDTBalance();
+  } catch (e) {
+    showDepositError('Wallet connection failed: ' + (e.message || 'Unknown error'));
+  }
+}
+
+function disconnectWallet() {
+  provider = null; signer = null; walletAddress = '';
+  document.getElementById('wallet-dot').classList.remove('on');
+  document.getElementById('wallet-label').textContent = 'Connect wallet';
+  document.getElementById('wallet-btn').classList.remove('connected');
+  updateDeposit();
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+}
+
+// ─── DEPOSIT ─────────────────────────────────────────────────────────────────
+function updateDeposit() {
+  const amt = parseFloat(document.getElementById('deposit-amount').value) || 0;
+  const octra = document.getElementById('deposit-octra').value.trim();
+  const fee = amt * feeRate();
+  const receive = amt - fee;
+
+  document.getElementById('deposit-receive').value = amt > 0 ? receive.toFixed(2) : '';
+
+  const summary = document.getElementById('deposit-summary');
+  if (amt > 0 && octra.length > 3) {
+    summary.classList.add('show');
+    document.getElementById('ds-amount').textContent = '$' + amt.toFixed(2) + ' USDT';
+    document.getElementById('ds-fee-label').textContent = 'Bridge fee (' + feeLabel() + ')';
+    document.getElementById('ds-fee').textContent = '$' + fee.toFixed(4) + ' USDT';
+    document.getElementById('ds-dest').textContent = octra;
+    document.getElementById('ds-receive').textContent = receive.toFixed(2) + ' ocUSD';
+  } else {
+    summary.classList.remove('show');
+  }
+
+  const btn = document.getElementById('deposit-btn');
+  const note = document.getElementById('deposit-note');
+  if (!isBridgeLive()) { btn.textContent = 'Bridge not live yet'; btn.disabled = true; note.textContent = 'Deposits are paused.'; }
+  else if (!walletAddress) { btn.textContent = 'Connect wallet to deposit'; btn.disabled = true; note.textContent = 'Funds locked in custody contract · ~2 min settlement · Octra mainnet alpha'; }
+  else if (amt <= 0) { btn.textContent = 'Enter an amount'; btn.disabled = true; }
+  else if (!/^oct[A-Za-z0-9]{20,}$/.test(octra)) { btn.textContent = 'Enter your Octra address'; btn.disabled = true; }
+  else { btn.textContent = 'Deposit USDT'; btn.disabled = false; }
+}
+
+async function executeDeposit() {
+  const amt = parseFloat(document.getElementById('deposit-amount').value);
+  const octra = document.getElementById('deposit-octra').value.trim();
+  if (!signer || !amt || !octra) return;
+  if (!isBridgeLive()) { showDepositError('Bridge deposits are paused.'); updateDeposit(); return; }
+
+  const btn = document.getElementById('deposit-btn');
+  hideDepositError();
+
+  try {
+    const amountUnits = ethers.parseUnits(amt.toFixed(6), 6);
+    const usdt = new ethers.Contract(CONFIG.USDT_ADDRESS, ERC20_ABI, signer);
+    const custody = new ethers.Contract(CONFIG.CUSTODY_CONTRACT, CUSTODY_ABI, signer);
+
+    btn.textContent = 'Approving USDT...';
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    const allowance = await usdt.allowance(walletAddress, CONFIG.CUSTODY_CONTRACT);
+    if (allowance < amountUnits) {
+      const approveTx = await usdt.approve(CONFIG.CUSTODY_CONTRACT, amountUnits);
+      btn.textContent = 'Waiting for approval...';
+      await approveTx.wait();
+    }
+
+    btn.textContent = 'Confirm deposit in wallet...';
+    const depositTx = await custody.deposit(amountUnits, octra);
+    btn.textContent = 'Bridging...';
+    const receipt = await depositTx.wait();
+
+    btn.classList.remove('loading');
+    btn.classList.add('success');
+    btn.textContent = '✓ ' + (amt * (1 - feeRate())).toFixed(2) + ' ocUSD bridging to Octra';
+
+    const txEl = document.getElementById('deposit-tx');
+    txEl.innerHTML = `<a href="${CONFIG.ETHERSCAN}${receipt.hash}" target="_blank" rel="noopener">View on Etherscan ↗</a>`;
+    txEl.classList.add('show');
+
+    const prevTvl = tvl;
+    tvl += amt; txCount += 1;
+    countUp('stat-tvl', prevTvl, tvl, { prefix: '$' });
+    countUp('stat-bridged', prevTvl * (1 - feeRate()), tvl * (1 - feeRate()));
+    loadUSDTBalance();
+
+    setTimeout(() => {
+      document.getElementById('deposit-amount').value = '';
+      document.getElementById('deposit-octra').value = '';
+      document.getElementById('deposit-receive').value = '';
+      document.getElementById('deposit-summary').classList.remove('show');
+      btn.classList.remove('success');
+      btn.textContent = 'Deposit USDT';
+      btn.disabled = false;
+      txEl.classList.remove('show');
+    }, 8000);
+
+  } catch (e) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    btn.textContent = 'Deposit USDT';
+    const msg = e?.reason || e?.message || 'Transaction failed';
+    showDepositError(msg.length > 120 ? msg.slice(0, 120) + '...' : msg);
+  }
+}
+
+// ─── REDEEM ──────────────────────────────────────────────────────────────────
+function updateRedeem() {
+  const amt = parseFloat(document.getElementById('redeem-amount').value) || 0;
+  const eth = document.getElementById('redeem-eth').value.trim();
+  const raw = amt > 0 ? ethers.parseUnits(amt.toFixed(6), 6) : 0n;
+  const fee = raw * BigInt(CONFIG.BRIDGE_FEE_BPS) / 10000n;
+  const net = raw - fee;
+
+  document.getElementById('redeem-receive').value = raw > 0n ? ethers.formatUnits(net, 6) : '';
+
+  const summary = document.getElementById('redeem-summary');
+  const btn = document.getElementById('redeem-btn');
+
+  if (amt > 0 && ethers.isAddress(eth)) {
+    summary.classList.add('show');
+    document.getElementById('rs-fee-label').textContent = 'Bridge fee (' + feeLabel() + ')';
+    document.getElementById('rs-fee').textContent = ethers.formatUnits(fee, 6) + ' USDT';
+    document.getElementById('rs-dest').textContent = eth;
+    document.getElementById('rs-receive').textContent = ethers.formatUnits(net, 6) + ' USDT';
+  } else {
+    summary.classList.remove('show');
+  }
+
+  // No MetaMask required — relayer auto-releases USDT
+  if (amt <= 0) { btn.textContent = 'Enter an amount'; btn.disabled = true; }
+  else if (!ethers.isAddress(eth)) { btn.textContent = 'Enter your Ethereum wallet'; btn.disabled = true; }
+  else { btn.textContent = 'Redeem ocUSD'; btn.disabled = false; }
+}
+
+function showRedeemError(msg) {
+  const el = document.getElementById('redeem-error');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+function hideRedeemError() { document.getElementById('redeem-error').classList.remove('show'); }
+
+async function executeRedeem() {
+  const btn = document.getElementById('redeem-btn');
+  const ethRecipient = document.getElementById('redeem-eth').value.trim();
+  const amt = parseFloat(document.getElementById('redeem-amount').value) || 0;
+  const octraTxEl = document.getElementById('octra-tx');
+  const note = document.getElementById('redeem-note');
+
+  hideRedeemError();
+  octraTxEl.classList.remove('show');
+
+  if (!ethers.isAddress(ethRecipient)) { showRedeemError('Enter a valid Ethereum wallet address.'); return; }
+  if (amt <= 0) { showRedeemError('Enter an amount to redeem.'); return; }
+
+  const rawStr = ethers.parseUnits(amt.toFixed(6), 6).toString();
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  try {
+    // Connect Octra wallet if not yet connected
+    if (!octraWalletAddr) {
+      btn.textContent = 'Connecting Octra wallet...';
+      await connectOctraWallet();
+      if (!octraWalletAddr) {
+        btn.textContent = 'Redeem ocUSD';
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    // Burn ocUSD on Octra — relayer will auto-release USDT on Ethereum
+    btn.textContent = 'Confirm burn in Octra wallet...';
+    let txHash;
+
+    if (octraConnMethod === '0xio') {
+      const r = await octraSDK.callContract({
+        contract: CONFIG.OCUSD_CONTRACT_OCTRA,
+        method: 'burn_to_eth',
+        params: [ethRecipient, rawStr],
+        amount: '0',
+        ou: '1000',
+      });
+      if (!r.txHash) throw new Error(r.error || 'No txHash from 0xio wallet.');
+      txHash = r.txHash;
+    } else {
+      const r = await octraWcli('POST', '/contract/call', {
+        address: CONFIG.OCUSD_CONTRACT_OCTRA,
+        method: 'burn_to_eth',
+        params: [ethRecipient, rawStr],
+        amount: '0',
+        ou: '1000',
+      });
+      if (!r.tx_hash) throw new Error(r.error || 'No tx_hash from webcli.');
+      txHash = r.tx_hash;
+    }
+
+    // Done — relayer handles the Ethereum side automatically
+    btn.classList.remove('loading');
+    btn.classList.add('success');
+    btn.textContent = '✓ ocUSD burned — USDT releasing';
+
+    octraTxEl.innerHTML = `Octra burn: <a href="https://octrascan.io/tx.html?hash=${txHash}" target="_blank" rel="noopener">${txHash.slice(0, 20)}... ↗</a>`;
+    octraTxEl.classList.add('show');
+    note.textContent = 'USDT will arrive in your Ethereum wallet in ~1–2 minutes.';
+
+    setTimeout(() => {
+      document.getElementById('redeem-amount').value = '';
+      document.getElementById('redeem-eth').value = '';
+      document.getElementById('redeem-receive').value = '';
+      document.getElementById('redeem-summary').classList.remove('show');
+      btn.classList.remove('success');
+      btn.textContent = 'Redeem ocUSD';
+      btn.disabled = false;
+      octraTxEl.classList.remove('show');
+      note.textContent = 'Your Octra wallet handles the burn — USDT arrives automatically in ~1–2 min.';
+    }, 12000);
+
+  } catch (e) {
+    btn.classList.remove('loading');
+    btn.classList.remove('success');
+    btn.textContent = 'Redeem ocUSD';
+    btn.disabled = false;
+    const msg = e?.reason || e?.shortMessage || e?.message || 'Redeem failed';
+    showRedeemError(msg.length > 140 ? msg.slice(0, 140) + '...' : msg);
+  } finally {
+    if (btn.classList.contains('success')) btn.disabled = false;
+  }
+}
+
+// ─── OCTRA WEBCLI ────────────────────────────────────────────────────────────
+async function octraWcli(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(CONFIG.OCTRA_WEBCLI_API + path, opts);
+  if (!res.ok) throw new Error('WebCLI error ' + res.status);
+  return res.json();
+}
+
+// ─── OCTRA WALLET CONNECTION ──────────────────────────────────────────────────
+function setOctraConnected(address, method) {
+  octraWalletAddr = address;
+  octraConnMethod = method;
+}
+
+function detect0xio() {
+  if (window.octra && window.octra.isOctra) return 'provider';
+  if (window.wallet0xio) return 'legacy';
+  const SDK = window.ZeroXIOWalletSDK;
+  if (SDK && (SDK.ZeroXIOWallet || SDK.createZeroXIOWallet)) return 'sdk';
+  return null;
+}
+
+async function connectOctraWallet() {
+  hideRedeemError();
+  const extMode = detect0xio();
+
+  if (extMode) {
+    const SDK = window.ZeroXIOWalletSDK;
+    const WalletClass = SDK?.ZeroXIOWallet ?? SDK?.default?.ZeroXIOWallet;
+    if (!WalletClass) throw new Error('0xio SDK script loaded but ZeroXIOWallet class not found.');
+    octraSDK = new WalletClass({ appName: 'OctraCash', appDescription: 'ocUSD Bridge' });
+    const available = await octraSDK.initialize();
+    if (!available) throw new Error('0xio extension did not respond. Is it unlocked?');
+    const result = await octraSDK.connect({ requestPermissions: ['read_balance', 'send_transactions'] });
+    const address = result?.address ?? octraSDK.getAddress?.();
+    if (!address) throw new Error('0xio connected but returned no address.');
+    setOctraConnected(address, '0xio');
+    return;
+  }
+
+  const st = await octraWcli('GET', '/wallet/status');
+  if (!st.loaded) throw new Error('Webcli wallet is locked — unlock it first, or install the 0xio extension.');
+  const info = await octraWcli('GET', '/wallet');
+  setOctraConnected(info.address, 'webcli');
+}
+
+// ─── LOOKUP + RESCUE CLAIM ───────────────────────────────────────────────────
+function setLookupStatus(status) {
+  const statusEl = document.getElementById('lr-status');
+  statusEl.innerHTML = '';
+  const badge = document.createElement('span');
+  badge.className = 'status-badge';
+  badge.textContent = status;
+  statusEl.appendChild(badge);
+}
+
+function formatLookupAmount(raw) {
+  return ethers.formatUnits(BigInt(String(raw || '0')), 6).replace(/\.?0+$/, '');
+}
+
+function showLookupData(addr, data) {
+  const deposits = Array.isArray(data.deposits) ? data.deposits : [];
+  const mintedDeposits = deposits.filter(d => d.status === 'minted');
+  const totalLocked = deposits.reduce((sum, d) => sum + BigInt(String(d.amount || '0')), 0n);
+  const totalIssued = mintedDeposits.reduce((sum, d) => sum + BigInt(String(d.amount || '0')), 0n);
+  const latestDeposit = deposits[0] || null;
+
+  document.getElementById('lr-eth').textContent = addr.slice(0,8) + '...' + addr.slice(-6);
+  document.getElementById('lr-oct').textContent = latestDeposit?.octra_recipient || latestDeposit?.octra_address || '—';
+  document.getElementById('lr-locked').textContent = formatLookupAmount(totalLocked) + ' USDT';
+  document.getElementById('lr-issued').textContent = formatLookupAmount(totalIssued) + ' ocUSD';
+  document.getElementById('lr-count').textContent = String(deposits.length);
+
+  if (deposits.length === 0) setLookupStatus('No deposits');
+  else if (mintedDeposits.length === deposits.length) setLookupStatus('Minted');
+  else if (mintedDeposits.length > 0) setLookupStatus('Partially minted');
+  else setLookupStatus(latestDeposit?.status || 'Pending');
+
+  // Show rescue claim section for signed-but-not-released burns
+  const burns = Array.isArray(data.burns) ? data.burns : [];
+  const claimable = burns.filter(b => b.has_signature && !b.eth_release_tx);
+  const burnsSection = document.getElementById('lr-burns-section');
+  const burnsList = document.getElementById('lr-burns-list');
+
+  if (claimable.length > 0) {
+    burnsSection.style.display = 'block';
+    burnsList.innerHTML = claimable.map(b => `
+      <div class="burn-card">
+        <div class="burn-card-row">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">Burn nonce #${b.burn_nonce}</span>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);">${formatLookupAmount(b.amount)} USDT</span>
+        </div>
+        <button class="btn claim-btn" onclick="claimBurn(${b.burn_nonce}, this)">Claim USDT</button>
+      </div>
+    `).join('');
+  } else {
+    burnsSection.style.display = 'none';
+  }
+}
+
+async function claimBurn(burnNonce, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Fetching signature...';
+
+  try {
+    const res = await fetch(`${CONFIG.RELAYER_API}/withdraw-signature?burn_nonce=${burnNonce}`);
+    if (!res.ok) throw new Error('Signature not available. Try again in a moment.');
+    const sigData = await res.json();
+    if (!sigData.signature || !sigData.recipient || !sigData.amount) throw new Error('Incomplete signature data from relayer.');
+
+    if (!signer) {
+      btn.textContent = 'Connect MetaMask...';
+      await connectWallet();
+      if (!signer) throw new Error('MetaMask connection required to claim USDT.');
+    }
+
+    const custody = new ethers.Contract(CONFIG.CUSTODY_CONTRACT, CUSTODY_ABI, signer);
+    btn.textContent = 'Confirm in MetaMask...';
+    const tx = await custody.withdraw(sigData.recipient, sigData.amount, sigData.burn_nonce, sigData.signature);
+    btn.textContent = 'Releasing USDT...';
+    await tx.wait();
+
+    btn.textContent = '✓ USDT claimed';
+    btn.style.background = 'var(--green-dim)';
+    btn.style.color = 'var(--green)';
+    btn.style.border = '1px solid rgba(0,229,160,0.3)';
+    btn.style.cursor = 'default';
+
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Claim USDT';
+    const msg = (e?.reason || e?.shortMessage || e?.message || 'Claim failed').slice(0, 140);
+    alert('Claim failed: ' + msg);
+  }
+}
+
+async function fetchRelayerLookup(addr) {
+  if (!isRelayerLive()) return null;
+  const res = await fetch(`${CONFIG.RELAYER_API}/lookup?eth=${encodeURIComponent(addr)}`);
+  if (!res.ok) throw new Error('Relayer lookup failed.');
+  return res.json();
+}
+
+async function lookupDeposits(addr) {
+  if (isRelayerLive()) {
+    try { return await fetchRelayerLookup(addr); } catch (_) {}
+  }
+  return fetchOnchainDeposits(addr);
+}
+
+async function fetchOnchainDeposits(addr) {
+  const iface = new ethers.Interface(CUSTODY_ABI);
+  const topic0 = ethers.id('Deposited(address,uint256,string,uint256)');
+  const topic1 = ethers.zeroPadValue(addr, 32);
+  let lastError = null;
+
+  for (const rpcUrl of CONFIG.ETH_RPC_URLS) {
+    try {
+      const rpc = new ethers.JsonRpcProvider(rpcUrl, CONFIG.CHAIN_ID);
+      const latest = await rpc.getBlockNumber();
+      const logs = [];
+      const chunkSize = 45000;
+      for (let fromBlock = CONFIG.CUSTODY_DEPLOY_BLOCK; fromBlock <= latest; fromBlock += chunkSize + 1) {
+        const toBlock = Math.min(fromBlock + chunkSize, latest);
+        const chunk = await rpc.getLogs({ address: CONFIG.CUSTODY_CONTRACT, fromBlock, toBlock, topics: [topic0, topic1] });
+        logs.push(...chunk);
+      }
+      return {
+        eth_address: addr,
+        deposits: logs.map(log => {
+          const parsed = iface.parseLog(log);
+          return { tx_hash: log.transactionHash, block_number: log.blockNumber, user_address: parsed.args.user, amount: parsed.args.amount.toString(), octra_recipient: parsed.args.octraAddress, deposit_nonce: Number(parsed.args.nonce), status: 'pending' };
+        }).sort((a, b) => b.block_number - a.block_number || b.deposit_nonce - a.deposit_nonce),
+        burns: [],
+      };
+    } catch (error) { lastError = error; }
+  }
+  throw lastError || new Error('Ethereum lookup failed.');
+}
+
+async function executeLookup() {
+  const addr = document.getElementById('lookup-input').value.trim();
+  if (!addr) return;
+  const result = document.getElementById('lookup-result');
+
+  const btn = document.querySelector('#panel-lookup .btn');
+  btn.textContent = 'Looking up...';
+  btn.disabled = true;
+
+  document.getElementById('lr-burns-section').style.display = 'none';
+
+  try {
+    if (!ethers.isAddress(addr)) throw new Error('Enter a valid Ethereum address.');
+    result.classList.add('show');
+    document.getElementById('lr-eth').textContent = addr.slice(0,8) + '...' + addr.slice(-6);
+    const data = await lookupDeposits(addr);
+    showLookupData(addr, data);
+  } catch(e) {
+    result.classList.add('show');
+    document.getElementById('lr-eth').textContent = addr;
+    document.getElementById('lr-oct').textContent = '—';
+    document.getElementById('lr-locked').textContent = '—';
+    document.getElementById('lr-issued').textContent = '—';
+    document.getElementById('lr-count').textContent = '—';
+    setLookupStatus(e.message || 'Lookup error');
+  }
+
+  btn.textContent = 'Look up';
+  btn.disabled = false;
+}
+
+// ─── COUNTER ANIMATION ───────────────────────────────────────────────────────
+function countUp(elId, fromVal, toVal, { prefix = '', suffix = '', decimals = 2, ms = 900 } = {}) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const start = performance.now();
+  const diff = toVal - fromVal;
+  function frame(now) {
+    const progress = Math.min((now - start) / ms, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = fromVal + diff * eased;
+    el.textContent = prefix + current.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ─── USDT BALANCE HINT ───────────────────────────────────────────────────────
+let usdtBalance = 0;
+
+async function loadUSDTBalance() {
+  const hint = document.getElementById('deposit-balance-hint');
+  if (!walletAddress || !provider) { if (hint) hint.textContent = ''; return; }
+  try {
+    const rpc = new ethers.BrowserProvider(window.ethereum);
+    const usdt = new ethers.Contract(CONFIG.USDT_ADDRESS, ERC20_ABI, rpc);
+    const bal = await usdt.balanceOf(walletAddress);
+    usdtBalance = parseFloat(ethers.formatUnits(bal, 6));
+    if (hint) hint.textContent = 'Balance: ' + usdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDT';
+  } catch (_) {}
+}
+
+function setDepositMax() {
+  if (usdtBalance <= 0) return;
+  document.getElementById('deposit-amount').value = usdtBalance.toFixed(6);
+  updateDeposit();
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function showDepositError(msg) {
+  const el = document.getElementById('deposit-error');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+function hideDepositError() { document.getElementById('deposit-error').classList.remove('show'); }
+
+if (window.ethereum) {
+  window.ethereum.on('accountsChanged', (accounts) => {
+    if (accounts.length === 0) disconnectWallet();
+    else { walletAddress = accounts[0]; document.getElementById('wallet-label').textContent = walletAddress.slice(0,6) + '...' + walletAddress.slice(-4); loadUSDTBalance(); }
+  });
+  window.ethereum.on('chainChanged', () => window.location.reload());
+}
+
+async function loadTVL() {
+  if (!isCustodyConfigured()) return;
+  for (const rpcUrl of CONFIG.ETH_RPC_URLS) {
+    try {
+      const rpc = new ethers.JsonRpcProvider(rpcUrl, CONFIG.CHAIN_ID);
+      const usdt = new ethers.Contract(CONFIG.USDT_ADDRESS, ERC20_ABI, rpc);
+      const custody = new ethers.Contract(CONFIG.CUSTODY_CONTRACT, CUSTODY_ABI, rpc);
+      const [balance, nonce] = await Promise.all([usdt.balanceOf(CONFIG.CUSTODY_CONTRACT), custody.depositNonce()]);
+      const newTvl = parseFloat(ethers.formatUnits(balance, 6));
+      const newIssued = newTvl * (1 - feeRate());
+      const prevTvl = tvl;
+      tvl = newTvl; txCount = Number(nonce);
+      countUp('stat-tvl', prevTvl, newTvl, { prefix: '$' });
+      countUp('stat-bridged', prevTvl * (1 - feeRate()), newIssued);
+      return;
+    } catch (_) {}
+  }
+}
+
+updateDeposit();
+updateRedeem();
+document.getElementById('stat-fee').textContent = feeLabel();
+document.getElementById('octra-contract-display').textContent = CONFIG.OCUSD_CONTRACT_OCTRA;
+loadTVL();
+
+function copyOctraContract() {
+  navigator.clipboard.writeText(CONFIG.OCUSD_CONTRACT_OCTRA).catch(() => {});
+  const btn = document.querySelector('[onclick="copyOctraContract()"]');
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
+}
+</script>
+</body>
+</html>
