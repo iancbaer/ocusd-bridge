@@ -64,7 +64,7 @@ function corsJson(res, status, data) {
   res.end(body);
 }
 
-async function octraView(method, params = []) {
+async function octraView(method, params = [], contractAddr) {
   const rpcUrl = normalizeRpcUrl(required("OCTRA_RPC_URL"));
   const response = await axios.post(
     rpcUrl,
@@ -72,9 +72,9 @@ async function octraView(method, params = []) {
       jsonrpc: "2.0",
       id: Date.now(),
       method: "contract_call",
-      params: [required("OCTRA_TOKEN_CONTRACT"), method, params, process.env.RELAYER_OCTRA_ADDRESS || ""],
+      params: [contractAddr || required("OCTRA_TOKEN_CONTRACT"), method, params, process.env.RELAYER_OCTRA_ADDRESS || ""],
     },
-    { timeout: 15_000 }
+    { timeout: 15_000, headers: { "User-Agent": "ocusd-proof/1.0" } }
   );
   if (response.data.error) {
     throw new Error(response.data.error.message || JSON.stringify(response.data.error));
@@ -316,6 +316,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.url.startsWith("/healthz")) {
       return corsJson(res, 200, { ok: true, generated_at: new Date().toISOString() });
+    }
+    if (url.pathname === "/burn-nonce") {
+      const contract = url.searchParams.get("contract") || required("OCTRA_TOKEN_CONTRACT");
+      const nonce = await octraView("get_burn_nonce", [], contract);
+      const n = Number(nonce.result ?? nonce);
+      return corsJson(res, 200, { burn_nonce: n });
     }
     return serveStatic(req, res);
   } catch (error) {
