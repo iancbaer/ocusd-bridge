@@ -79,22 +79,24 @@ function openDatabase(filename = process.env.RELAYER_DB_PATH || "relayer.sqlite"
     },
 
     pendingEthDeposits(limit = 25) {
-      // Atomically claim deposits by marking them 'processing' so concurrent
-      // relayer cycles cannot double-mint the same deposit.
-      const rows = db.prepare(`
-        SELECT * FROM eth_deposits
-        WHERE status IN ('pending', 'failed') AND attempts < 3
-        ORDER BY block_number ASC, deposit_nonce ASC
-        LIMIT ?
-      `).all(limit);
-      const now = Math.floor(Date.now() / 1000);
-      for (const row of rows) {
-        db.prepare(`
-          UPDATE eth_deposits SET status = 'processing', updated_at = ?
-          WHERE id = ? AND status IN ('pending', 'failed')
-        `).run(now, row.id);
-      }
-      return rows;
+      // SELECT + UPDATE inside an IMMEDIATE transaction so no concurrent
+      // process can claim the same rows between the read and the write.
+      return db.transaction(() => {
+        const rows = db.prepare(`
+          SELECT * FROM eth_deposits
+          WHERE status IN ('pending', 'failed') AND attempts < 3
+          ORDER BY block_number ASC, deposit_nonce ASC
+          LIMIT ?
+        `).all(limit);
+        const now = Math.floor(Date.now() / 1000);
+        for (const row of rows) {
+          db.prepare(`
+            UPDATE eth_deposits SET status = 'processing', updated_at = ?
+            WHERE id = ? AND status IN ('pending', 'failed')
+          `).run(now, row.id);
+        }
+        return rows;
+      }).immediate();
     },
 
     markEthDepositMinted(id, octraMintTx) {
@@ -124,20 +126,22 @@ function openDatabase(filename = process.env.RELAYER_DB_PATH || "relayer.sqlite"
     },
 
     pendingOctraBurns(limit = 25) {
-      const rows = db.prepare(`
-        SELECT * FROM octra_burns
-        WHERE status IN ('pending', 'failed') AND attempts < 3
-        ORDER BY block_height ASC, burn_nonce ASC
-        LIMIT ?
-      `).all(limit);
-      const now = Math.floor(Date.now() / 1000);
-      for (const row of rows) {
-        db.prepare(`
-          UPDATE octra_burns SET status = 'processing', updated_at = ?
-          WHERE id = ? AND status IN ('pending', 'failed')
-        `).run(now, row.id);
-      }
-      return rows;
+      return db.transaction(() => {
+        const rows = db.prepare(`
+          SELECT * FROM octra_burns
+          WHERE status IN ('pending', 'failed') AND attempts < 3
+          ORDER BY block_height ASC, burn_nonce ASC
+          LIMIT ?
+        `).all(limit);
+        const now = Math.floor(Date.now() / 1000);
+        for (const row of rows) {
+          db.prepare(`
+            UPDATE octra_burns SET status = 'processing', updated_at = ?
+            WHERE id = ? AND status IN ('pending', 'failed')
+          `).run(now, row.id);
+        }
+        return rows;
+      }).immediate();
     },
 
     getOctraBurnByNonce(burnNonce) {
