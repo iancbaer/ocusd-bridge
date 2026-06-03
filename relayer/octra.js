@@ -15,7 +15,7 @@ function createOctraClient(config) {
     const response = await axios.post(
       rpcUrl,
       { jsonrpc: "2.0", id: nextId++, method, params },
-      { timeout: 30_000 }
+      { timeout: 30_000, headers: { "User-Agent": config.octraRpcUserAgent || "ocusd-relayer/1.0" } }
     );
 
     if (response.data.error) {

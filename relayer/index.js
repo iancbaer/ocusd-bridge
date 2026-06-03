@@ -43,6 +43,7 @@ function configFromEnv(env = process.env) {
     octraCallFee: env.OCTRA_CALL_FEE || "1000",
     octraEventsEndpoint: env.OCTRA_EVENTS_ENDPOINT,
     octraSubmitEndpoint: env.OCTRA_SUBMIT_ENDPOINT,
+    octraRpcUserAgent: env.OCTRA_RPC_USER_AGENT || "ocusd-relayer/1.0",
     userSubmittedWithdrawals: env.USER_SUBMITTED_WITHDRAWALS !== "0",
     bridgeFeeBps: Number(env.BRIDGE_FEE_BPS || 10),
     minOctraRelayerBalanceOu: env.MIN_OCTRA_RELAYER_BALANCE_OU || "0",
