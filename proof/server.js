@@ -6,6 +6,7 @@ const fs = require("fs");
 const axios = require("axios");
 const { ethers } = require("ethers");
 const { openDatabase } = require("../relayer/db");
+const { netAfterBridgeFee } = require("../relayer");
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -18,6 +19,10 @@ const CUSTODY_ABI = [
   "function paused() view returns (bool)",
   "function relayerSigner() view returns (address)",
   "function depositNonce() view returns (uint256)",
+];
+
+const WITHDRAW_ABI = [
+  "function withdraw(address recipient,uint256 amount,uint256 octraBurnNonce,bytes signature)",
 ];
 
 function normalizeRpcUrl(url) {
@@ -37,6 +42,24 @@ function text(res, status, body, contentType = "text/plain; charset=utf-8") {
   res.writeHead(status, {
     "content-type": contentType,
     "cache-control": "no-store",
+  });
+  res.end(body);
+}
+
+function corsHeaders() {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-headers": "content-type",
+  };
+}
+
+function corsJson(res, status, data) {
+  const body = JSON.stringify(data, null, 2);
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    ...corsHeaders(),
   });
   res.end(body);
 }
@@ -157,6 +180,98 @@ async function proofSnapshot() {
   };
 }
 
+function publicDeposit(row) {
+  if (!row) return null;
+  return {
+    tx_hash: row.tx_hash,
+    block_number: row.block_number,
+    user_address: row.user_address,
+    amount: row.amount,
+    octra_recipient: row.octra_recipient,
+    deposit_nonce: row.deposit_nonce,
+    status: row.status,
+    octra_mint_tx: row.octra_mint_tx,
+    last_error: row.last_error,
+    updated_at: row.updated_at,
+  };
+}
+
+function publicBurn(row) {
+  if (!row) return null;
+  return {
+    octra_tx_hash: row.octra_tx_hash,
+    block_height: row.block_height,
+    user_address: row.user_address,
+    amount: row.amount,
+    burn_nonce: row.burn_nonce,
+    eth_recipient: row.eth_recipient,
+    status: row.status,
+    has_signature: Boolean(row.eth_release_signature),
+    eth_release_tx: row.eth_release_tx,
+    last_error: row.last_error,
+    updated_at: row.updated_at,
+  };
+}
+
+function lookupByEth(ethAddress) {
+  const store = openDatabase(process.env.RELAYER_DB_PATH || "relayer.sqlite");
+  const address = ethAddress.toLowerCase();
+  const deposits = store.db.prepare(`
+    SELECT * FROM eth_deposits
+    WHERE lower(user_address) = ?
+    ORDER BY block_number DESC, deposit_nonce DESC
+    LIMIT 25
+  `).all(address).map(publicDeposit);
+  const burns = store.db.prepare(`
+    SELECT * FROM octra_burns
+    WHERE lower(eth_recipient) = ?
+    ORDER BY block_height DESC, burn_nonce DESC
+    LIMIT 25
+  `).all(address).map(publicBurn);
+  return { eth_address: ethAddress, deposits, burns };
+}
+
+async function withdrawalSignature(burnNonce) {
+  const store = openDatabase(process.env.RELAYER_DB_PATH || "relayer.sqlite");
+  const burn = store.getOctraBurnByNonce(burnNonce);
+  if (!burn) {
+    const error = new Error("burn not found or not indexed yet");
+    error.status = 404;
+    throw error;
+  }
+  if (!ethers.isAddress(burn.eth_recipient)) {
+    const error = new Error("burn has invalid Ethereum recipient");
+    error.status = 422;
+    throw error;
+  }
+
+  let signature = burn.eth_release_signature;
+  const releaseAmount = netAfterBridgeFee(burn.amount, Number(process.env.BRIDGE_FEE_BPS || 10));
+  if (!signature) {
+    const provider = new ethers.JsonRpcProvider(required("ETH_RPC_URL"));
+    const wallet = new ethers.Wallet(required("RELAYER_PRIVATE_KEY_ETH"), provider);
+    const chain = await provider.getNetwork();
+    const digest = ethers.solidityPackedKeccak256(
+      ["address", "uint256", "uint256", "address", "uint256"],
+      [burn.eth_recipient, releaseAmount.net, burn.burn_nonce, required("ETH_CUSTODY_CONTRACT"), chain.chainId]
+    );
+    signature = await wallet.signMessage(ethers.getBytes(digest));
+    store.markOctraBurnSigned(burn.id, signature);
+  }
+
+  return {
+    custody_contract: required("ETH_CUSTODY_CONTRACT"),
+    withdraw_abi: WITHDRAW_ABI,
+    recipient: burn.eth_recipient,
+    amount: releaseAmount.net,
+    gross_amount: releaseAmount.gross,
+    fee_amount: releaseAmount.fee,
+    burn_nonce: burn.burn_nonce,
+    signature,
+    burn: publicBurn({ ...burn, amount: releaseAmount.net, eth_release_signature: signature, status: "signed" }),
+  };
+}
+
 function amountByStatus(rows, status) {
   const row = rows.find((item) => item.status === status);
   return row ? String(row.amount) : "0";
@@ -181,15 +296,30 @@ function serveStatic(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, corsHeaders());
+      return res.end();
+    }
+    const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
     if (req.url.startsWith("/api/proof")) {
-      return json(res, 200, await proofSnapshot());
+      return corsJson(res, 200, await proofSnapshot());
+    }
+    if (url.pathname === "/lookup") {
+      const eth = url.searchParams.get("eth");
+      if (!eth || !ethers.isAddress(eth)) return corsJson(res, 400, { error: "valid eth query param required" });
+      return corsJson(res, 200, lookupByEth(eth));
+    }
+    if (url.pathname === "/withdraw-signature") {
+      const burnNonce = url.searchParams.get("burn_nonce");
+      if (!burnNonce) return corsJson(res, 400, { error: "burn_nonce query param required" });
+      return corsJson(res, 200, await withdrawalSignature(burnNonce));
     }
     if (req.url.startsWith("/healthz")) {
-      return json(res, 200, { ok: true, generated_at: new Date().toISOString() });
+      return corsJson(res, 200, { ok: true, generated_at: new Date().toISOString() });
     }
     return serveStatic(req, res);
   } catch (error) {
-    return json(res, 500, { error: error.message });
+    return corsJson(res, error.status || 500, { error: error.message });
   }
 });
 

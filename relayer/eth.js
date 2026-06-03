@@ -7,8 +7,8 @@ const CUSTODY_ABI = [
 ];
 
 function createEthClient(config) {
-  const provider = new ethers.JsonRpcProvider(config.ethRpcUrl);
-  const wallet = new ethers.Wallet(config.ethPrivateKey, provider);
+  const provider = config.ethProvider || new ethers.JsonRpcProvider(config.ethRpcUrl);
+  const wallet = config.ethWallet || new ethers.Wallet(config.ethPrivateKey, provider);
   const custody = new ethers.Contract(config.custodyContract, CUSTODY_ABI, wallet);
 
   async function getCurrentBlock() {

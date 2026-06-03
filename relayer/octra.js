@@ -53,6 +53,11 @@ function createOctraClient(config) {
     return nonce;
   }
 
+  async function relayerBalance() {
+    const balance = await rpc("octra_balance", [config.octraRelayerAddress]);
+    return String(balance.balance ?? balance.available ?? balance.amount ?? 0);
+  }
+
   async function sendContractCall(method, params) {
     if (config.octraSubmitEndpoint) {
       const response = await axios.post(
@@ -102,7 +107,7 @@ function createOctraClient(config) {
 
       const args = log.args || log.params || {};
       const isBurnedToEth = name === "BurnedToEth";
-      const userAddress = args.caller || args.user || args[0];
+      const userAddress = args.account || args.caller || args.user || args[0];
       const ethRecipient = args.ethRecipient || args.eth_recipient || args.recipient || (isBurnedToEth ? args[1] : undefined);
       const amount = String(args.amount || (isBurnedToEth ? args[2] : args[1]));
       const burnNonce = Number(args.burnNonce || args.burn_nonce || (isBurnedToEth ? args[3] : args[2]));
@@ -164,6 +169,7 @@ function createOctraClient(config) {
   return {
     rpc,
     currentHeight,
+    relayerBalance,
     mint,
     scanBurns,
   };

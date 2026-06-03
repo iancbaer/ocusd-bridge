@@ -96,7 +96,7 @@ describe("OctraUSDCustody", function () {
 
   it("rejects deposits while paused", async function () {
     const { owner, user, usdt, custody } = await loadFixture(deployFixture);
-    const amount = 1_000_000n;
+    const amount = 1_000_000n; // 1 USDT = MIN_DEPOSIT
 
     await usdt.connect(user).approve(await custody.getAddress(), amount);
     await custody.connect(owner).pause();

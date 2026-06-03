@@ -24,6 +24,18 @@ Octra -> ETH
 
 USDT and ocUSD both use 6 decimals. Amounts are raw base units throughout the contracts and relayer.
 
+## Self-Funding Model
+
+The bridge can be operated as a fee-funded system, but it is not fully automatic liquidity out of thin air.
+
+- `BRIDGE_FEE_BPS` is deducted by the relayer when minting `ocUSD` from Ethereum deposits and when signing or submitting USDT releases from Octra burns. The default is `10` bps, or `0.1%`.
+- Fees remain as surplus USDT in the Ethereum custody contract. That surplus is the bridge operations reserve.
+- The Octra relayer wallet still needs native Octra balance to submit `mint()` calls. The operator must top that wallet up from the reserve, or wire a separate swap/treasury process that converts reserve USDT into native Octra funding.
+- `MIN_OCTRA_RELAYER_BALANCE_OU` prevents the relayer from spending the last native Octra balance. If the relayer balance is below `MIN_OCTRA_RELAYER_BALANCE_OU + OCTRA_CALL_FEE`, new Ethereum deposits stay pending instead of creating mint failures.
+- This keeps liabilities bounded: a 100 USDT deposit with a 10 bps fee mints 99.9 ocUSD. A later 99.9 ocUSD redemption releases 99.8001 USDT with the same fee.
+
+Before enabling public deposits, set the fee high enough to cover Ethereum withdrawal gas, Octra mint fees, failed transaction retries, and the spread/slippage of converting reserve USDT into native Octra balance.
+
 ## Contracts
 
 ### Ethereum
@@ -86,6 +98,54 @@ npm install
 npm test
 ```
 
+## Local Bridge Test
+
+This repository includes a deterministic local bridge test that uses only Hardhat, `MockUSDT`, SQLite, and an in-memory mock Octra adapter. It does not use real USDT, Ethereum mainnet, live Octra RPC, or any other chain.
+
+### Prerequisites
+
+- Node.js and npm
+- No funded wallet
+- No external RPC endpoint
+
+### Run
+
+```bash
+npm install
+npm run test:e2e:local
+```
+
+Equivalent demo command:
+
+```bash
+npm run demo:local
+```
+
+Expected successful output includes:
+
+```text
+local bridge loop
+  ✔ locks MockUSDT, mints through the mock Octra adapter, burns, releases, and rejects replays
+
+1 passing
+```
+
+### What It Proves
+
+- A local Ethereum user can approve and deposit 6-decimal `MockUSDT` into `OctraUSDCustody`.
+- The relayer can scan the `Deposited` event once and submit a `mint(recipient, amount, ethDepositNonce)` call to the mock Octra adapter.
+- The mock adapter records the mint so the test can verify amount, recipient, and Ethereum deposit nonce.
+- A fake Octra `BurnedToEth` event can be injected into the adapter.
+- The relayer can scan that burn once, sign the Ethereum withdrawal, and release `MockUSDT` from custody.
+- Replay protection is exercised for duplicate deposit minting and duplicate burn release.
+
+### What It Does Not Prove
+
+- Real USDT behavior on Ethereum mainnet.
+- Live Octra RPC, compiler, deployment, event indexing, or transaction finality.
+- Production safety, decentralization, or proof verification.
+- Base, Solana, or any other chain support.
+
 ### 2. Deploy Ethereum Custody
 
 Set:
@@ -131,6 +191,8 @@ RELAYER_PRIVATE_KEY_OCTRA=
 POLL_INTERVAL_MS=3000
 CONFIRMATIONS_REQUIRED=2
 OCTRA_CALL_FEE=1000
+BRIDGE_FEE_BPS=10
+MIN_OCTRA_RELAYER_BALANCE_OU=0
 ```
 
 Private keys must only be loaded from environment variables. The relayer never logs them.

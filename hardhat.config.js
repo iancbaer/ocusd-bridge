@@ -23,4 +23,7 @@ module.exports = {
       chainId: 1,
     },
   },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "GJYFHQN5XB53SU11B4KFQUDW7B9V69PPH2",
+  },
 };

@@ -47,6 +47,11 @@ function openDatabase(filename = process.env.RELAYER_DB_PATH || "relayer.sqlite"
     );
   `);
 
+  const burnColumns = db.prepare("PRAGMA table_info(octra_burns)").all().map((column) => column.name);
+  if (!burnColumns.includes("eth_release_signature")) {
+    db.exec("ALTER TABLE octra_burns ADD COLUMN eth_release_signature TEXT");
+  }
+
   return {
     db,
 
@@ -115,6 +120,21 @@ function openDatabase(filename = process.env.RELAYER_DB_PATH || "relayer.sqlite"
         ORDER BY block_height ASC, burn_nonce ASC
         LIMIT ?
       `).all(limit);
+    },
+
+    getOctraBurnByNonce(burnNonce) {
+      return db.prepare(`
+        SELECT * FROM octra_burns
+        WHERE burn_nonce = ?
+      `).get(Number(burnNonce));
+    },
+
+    markOctraBurnSigned(id, signature) {
+      db.prepare(`
+        UPDATE octra_burns
+        SET status = 'signed', eth_release_signature = ?, updated_at = ?
+        WHERE id = ?
+      `).run(signature, Math.floor(Date.now() / 1000), id);
     },
 
     markOctraBurnReleased(id, ethReleaseTx) {

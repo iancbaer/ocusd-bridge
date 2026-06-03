@@ -5,11 +5,18 @@
   "description": "Centralized V1 USDT to ocUSD bridge for Octra",
   "scripts": {
     "test": "hardhat test",
+    "test:eth": "hardhat test test/OctraUSDCustody.test.js",
+    "test:e2e:local": "hardhat test test/local-bridge.e2e.js",
     "compile": "hardhat compile",
     "setup:test-env": "node scripts/create-test-env.js",
+    "deploy:local": "hardhat run scripts/deploy-local.js",
+    "demo:local": "npm run test:e2e:local",
     "deploy:eth": "hardhat run scripts/deploy.js --network mainnet",
+    "deploy:octra": "node scripts/deploy-octra.js",
+    "deploy:octra:dry": "DRY_RUN=1 node scripts/deploy-octra.js",
     "deploy:mock": "hardhat run scripts/deploy-mock.js",
     "deploy:sepolia-mock": "hardhat run scripts/deploy-mock.js --network sepolia",
+    "readiness": "node scripts/readiness.js",
     "relayer": "node relayer/index.js",
     "proof": "node proof/server.js"
   },
