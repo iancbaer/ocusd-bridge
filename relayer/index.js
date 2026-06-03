@@ -181,6 +181,10 @@ async function runOnce(context) {
 
 async function main() {
   const context = createRelayer();
+  // On startup, reset any deposits/burns stuck in 'processing' from a previous crash
+  const db = context.store.db;
+  db.prepare("UPDATE eth_deposits SET status='pending' WHERE status='processing'").run();
+  db.prepare("UPDATE octra_burns SET status='pending' WHERE status='processing'").run();
 
   log("log", "ocUSD relayer started");
 
